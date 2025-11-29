@@ -162,8 +162,11 @@ class Database:
             predict_column = [predict_column]
 
         df_predicted = pd.DataFrame()
-        
+
         x = self.data.index.values.reshape(-1, 1)
+
+        last_index = self.data.index[-1]
+        future_indices = np.arange(last_index + 1, last_index + periods + 1).reshape(-1, 1)
 
         for column in predict_column:
             y = self.data[column].values
@@ -171,38 +174,12 @@ class Database:
             model = LinearRegression()
             model.fit(x, y)
 
-            last_index = self.data.index[-1]
-            future_indices = np.arange(last_index + 1, last_index + periods + 1).reshape(-1, 1)
             predicted_values = model.predict(future_indices)
-
-            df_predicted = pd.concat([
-                df_predicted,
-                pd.DataFrame({
-                    column: predicted_values
-                })
-            ])
+            df_predicted[column] = predicted_values
         
         df_predicted.set_index(future_indices.flatten(), inplace=True)
         
         return df_predicted
-
-        '''x = self.data.index.values.reshape(-1, 1)
-        y = self.data[predict_column].values
-        
-        model = LinearRegression()
-        model.fit(x, y)
-        
-        last_index = self.data.index[-1]
-        future_indices = np.arange(last_index + 1, last_index + periods + 1).reshape(-1, 1)
-        predicted_values = model.predict(future_indices)
-        
-        df_predicted = pd.DataFrame({
-            predict_column: predicted_values
-        })
-        
-        df_predicted.set_index(future_indices.flatten(), inplace=True)
-        
-        return df_predicted'''
     
     def get_error_rate(self, actual_column: str, predicted_column: str) -> float:
         '''
@@ -370,31 +347,64 @@ class Database:
 
     #|--------------------------------------------------------------|
     #| Export methods:
-    def to_dict(self):
-        pass
+    def to_dict(self) -> dict:
+        '''
+        Exporta o DataFrame para um dicionário orientado a objeto e não a colunas.
+        '''
+        return self.data.to_dict(orient = 'records')
 
     def to_json(self):
-        pass
+        '''
+        Exporta o DataFrame para um arquivo Json.
+        '''
+        json_path = self.path.replace('.db', '.json')
+
+        self.data.to_json(json_path, orient = 'records', date_format = 'iso', indent = 4)
 
     def to_csv(self):
-        pass
+        '''
+        Exporta o DataFrame para um arquivo CSV.
+        '''
+        csv_path = self.path.replace('.db', '.csv')
+
+        self.data.to_csv(csv_path, index = False)
 
     def to_excel(self):
-        pass
+        '''
+        Exporta o DataFrame para um arquivo Excel.
+        '''
+        excel_path = self.path.replace('.db', '.xlsx')
+
+        self.data.to_excel(excel_path, index = False)
 
     #|--------------------------------------------------------------|
     #| Import methods:
-    def from_dict(self, data_dict):
-        pass
+    def from_dict(self, dict_data: dict):
+        '''
+        Importa dados de um dicionário para o DataFrame.
+        '''
+        self.data = pd.DataFrame(dict_data)
 
-    def from_json(self, json_str):
-        pass
+    def from_json(self, json_path: str):
+        '''
+        Importa dados de um arquivo Json para o DataFrame.
+        '''
+        with open(json_path, 'r', encoding='utf-8') as file:
+            self.data = pd.read_json(file, orient = 'records', convert_dates = True)
 
-    def from_csv(self, csv_path):
-        pass
+    def from_csv(self, csv_path: str):
+        '''
+        Importa dados de um arquivo CSV para o DataFrame.
+        '''
+        with open(csv_path, 'r', encoding='utf-8') as file:
+            self.data = pd.read_csv(file, parse_dates = True)
 
-    def from_excel(self, excel_path):
-        pass
+    def from_excel(self, excel_path: str):
+        '''
+        Importa dados de um arquivo Excel para o DataFrame.
+        '''
+        with open(excel_path, 'rb') as file:
+            self.data = pd.read_excel(file, parse_dates = True)
 
 #|--------------------------------------------------------------|
 #| TESTS:                                                       |
@@ -411,10 +421,10 @@ if __name__ == "__main__":
     database = Database(dataframe)
 
     database.save()
+    database.to_json()
+    database.to_csv()
+    database.to_excel()
 
-    print(database.get_predicted_values(['Saldo', 'Idade'], 3))
     print(database.get_data())
-
-    print(database.__repr__())
 
     #database.backup()
